@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple To-Do List</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            width: 80%;
+            max-width: 800px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            position: relative;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        form {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        input[type="text"] {
+            width: calc(100% - 75px);
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+
+        button[type="submit"],
+        button[type="button"] {
+            padding: 10px 20px;
+            border: none;
+            background-color: #4caf50;
+            color: #fff;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button[type="submit"]:hover,
+        button[type="button"]:hover {
+            background-color: #45a049;
+        }
+
+        .todos {
+            list-style: none;
+            padding: 0;
+        }
+
+        .todo {
+            padding: 10px;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .todo span {
+            font-size: 18px;
+            text-decoration: none;
+            display: block;
+            margin-bottom: 5px;
+            flex-grow: 1;
+        }
+
+        .deleteIcon {
+            color: #f44336;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .deleteIcon:hover {
+            color: #dd3636;
+        }
+
+        #deleteAllBtn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: #f44336;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #deleteAllBtn:hover {
+            background-color: #dd3636;
+        }
+
+
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Simple To-Do List</h1>
+
+    <form id="addTodoForm">
+        <input type="text" id="taskInput" placeholder="Enter task">
+        <button type="submit">Add</button>
+    </form>
+
+    <button id="deleteAllBtn" type="button">Delete All</button>
+
+    <ul id="todos" class="todos">
+        <!-- To-Do items will be displayed here -->
+    </ul>
+</div>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const todosContainer = document.getElementById('todos');
+        const addTodoForm = document.getElementById('addTodoForm');
+        const taskInput = document.getElementById('taskInput');
+        const deleteAllBtn = document.getElementById('deleteAllBtn');
+        const backendBaseUrl = 'http://localhost:8080'; // Backend API base URL
+
+        // Function to display a single To-Do item
+        function displayTodo(todo) {
+            const todoDiv = document.createElement('div');
+            todoDiv.innerHTML = `
+                <input type="checkbox" class="completedCheckbox" data-id="${todo.id}" ${todo.completed ? 'checked' : ''}>
+                <span class="${todo.completed ? 'completed' : ''}">${todo.task}</span>
+                <button class="deleteBtn" data-id="${todo.id}">Delete</button>
+            `;
+            todosContainer.appendChild(todoDiv);
+        }
+
+        // Fetch all To-Do items
+        fetch(`${backendBaseUrl}/api/todolist`)
+            .then(response => response.json())
+            .then(todos => {
+                todos.forEach(todo => {
+                    displayTodo(todo);
+                });
+            });
+
+        // Add event listener for adding a new To-Do
+        addTodoForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            const task = taskInput.value;
+            if (task.trim() !== '') {
+                fetch(`${backendBaseUrl}/api/todolist`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        task: task,
+                        completed: false
+                    })
+                })
+                .then(response => response.json())
+                .then(todo => {
+                    displayTodo(todo);
+                    taskInput.value = '';
+                });
+            }
+        });
+
+        // Add event listener for deleting all To-Do items
+        deleteAllBtn.addEventListener('click', function () {
+            fetch(`${backendBaseUrl}/api/todolist`, {
+                method: 'DELETE'
+            })
+            .then(() => {
+                todosContainer.innerHTML = '';
+            });
+        });
+
+        // Event delegation for delete button clicks and completion checkbox changes
+        todosContainer.addEventListener('click', function (event) {
+            if (event.target.classList.contains('deleteBtn')) {
+                const todoId = event.target.getAttribute('data-id');
+                fetch(`${backendBaseUrl}/api/todolist/${todoId}`, {
+                    method: 'DELETE'
+                })
+                .then(() => {
+                    event.target.parentElement.remove(); // Remove the todo element from the DOM
+                })
+                .catch(error => console.error('Error deleting todo:', error));
+            } else if (event.target.classList.contains('completedCheckbox')) {
+                const todoId = event.target.getAttribute('data-id');
+                const completed = event.target.checked;
+                fetch(`${backendBaseUrl}/api/todolist/${todoId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        completed: completed,
+                        task: event.target.nextElementSibling.textContent.trim() // Update task content based on the next sibling span element
+                    })
+                })
+                .catch(error => console.error('Error updating todo:', error));
+
+                // Toggle the strikethrough style
+                const todoText = event.target.nextElementSibling;
+                todoText.classList.toggle('completed');
+            }
+        });
+    });
+</script>
+</body>
+</html>
